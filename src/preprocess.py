@@ -51,5 +51,5 @@ def load_and_preprocess_data(data_dir, img_size=(224, 224)):
     return X_train, X_val, X_test, y_train, y_val, y_test, class_names
 
 if __name__ == "__main__":
-    data_dir = "../data/animal-data"
+    data_dir = "../data/animal_data"
     X_train, X_val, X_test, y_train, y_val, y_test, class_names = load_and_preprocess_data(data_dir)
