@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import precision_recall_curve, average_precision_score
 from preprocess import get_sample_images
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 def plot_sample_images(
     data_dir: str,

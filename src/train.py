@@ -68,6 +68,6 @@ def train_model(
     return model, history, X_test, y_test, class_names
 
 if __name__ == "__main__":
-    data_dir = "../animal_data"
-    output_dir = "../outputs"
+    data_dir = "./animal_data"
+    output_dir = "./outputs"
     model, history, X_test, y_test, class_names = train_model(data_dir, output_dir)

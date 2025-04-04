@@ -105,7 +105,7 @@ def evaluate_model(
 
 if __name__ == "__main__":
     from train import train_model
-    data_dir = "../animal_data"
-    output_dir = "../outputs"
+    data_dir = "./animal_data"
+    output_dir = "./outputs"
     model, history, X_test, y_test, class_names = train_model(data_dir, output_dir)
     evaluate_model(model, history, X_test, y_test, class_names, output_dir)

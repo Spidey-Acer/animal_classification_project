@@ -1,0 +1,12 @@
+
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+__pycache__/*  
+model_weights.h5
+*.h5
