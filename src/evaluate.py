@@ -24,7 +24,7 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
         preprocessing_function=tf.keras.applications.resnet50.preprocess_input
     )
     test_generator = test_datagen.flow_from_directory(
-        os.path.join(data_dir, 'test'),
+        data_dir,
         target_size=(224, 224),
         batch_size=16,
         class_mode='categorical',

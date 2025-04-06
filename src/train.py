@@ -12,7 +12,8 @@ import numpy as np
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
 NUM_CLASSES = 15
-EPOCHS = 30  # Reduced for initial training; fine-tuning adds more
+EPOCHS_INITIAL = 20
+EPOCHS_FINE = 30
 DATA_DIR = './animal_data'
 OUTPUT_DIR = './outputs'
 
@@ -35,12 +36,14 @@ train_datagen = ImageDataGenerator(
     zoom_range=0.2,
     horizontal_flip=True,
     fill_mode='nearest',
-    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
+    validation_split=0.3
 )
 
 val_datagen = ImageDataGenerator(
     rescale=1./255,
-    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
+    validation_split=0.3
 )
 
 test_datagen = ImageDataGenerator(
@@ -48,28 +51,7 @@ test_datagen = ImageDataGenerator(
     preprocessing_function=tf.keras.applications.resnet50.preprocess_input
 )
 
-# Data generators for training, validation, and testing
-train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    rotation_range=40,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest',
-    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
-    validation_split=0.3
-)
-val_datagen = ImageDataGenerator(
-    rescale=1./255,
-    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
-    validation_split=0.3
-)
-test_datagen = ImageDataGenerator(
-    rescale=1./255,
-    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
-)
+# Data generators
 train_generator = train_datagen.flow_from_directory(
     DATA_DIR,
     target_size=IMG_SIZE,
@@ -79,6 +61,7 @@ train_generator = train_datagen.flow_from_directory(
     subset='training',
     shuffle=True
 )
+
 val_generator = val_datagen.flow_from_directory(
     DATA_DIR,
     target_size=IMG_SIZE,
@@ -88,6 +71,7 @@ val_generator = val_datagen.flow_from_directory(
     subset='validation',
     shuffle=False
 )
+
 test_generator = test_datagen.flow_from_directory(
     DATA_DIR,
     target_size=IMG_SIZE,
@@ -127,7 +111,7 @@ reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr
 print("Starting initial training...")
 history = model.fit(
     train_generator,
-    epochs=EPOCHS,
+    epochs=EPOCHS_INITIAL,
     validation_data=val_generator,
     callbacks=[early_stopping, reduce_lr]
 )
@@ -154,7 +138,7 @@ model.summary()
 # Continue training
 history_fine = model.fit(
     train_generator,
-    epochs=EPOCHS,
+    epochs=EPOCHS_INITIAL + EPOCHS_FINE,
     initial_epoch=len(history.epoch),
     validation_data=val_generator,
     callbacks=[early_stopping, reduce_lr]
@@ -164,9 +148,9 @@ history_fine = model.fit(
 with open(os.path.join(OUTPUT_DIR, 'history_fine.pkl'), 'wb') as f:
     pickle.dump(history_fine.history, f)
 
-# Evaluate on test set
+# Evaluate on test set (limit to 119 samples)
 test_generator.reset()
-steps = int(np.ceil(119 / BATCH_SIZE))  # Match preprocess.py's 119 test samples
+steps = int(np.ceil(119 / BATCH_SIZE))
 test_loss, test_accuracy = model.evaluate(test_generator, steps=steps)
 print(f"Test Accuracy: {test_accuracy*100:.2f}%")
 print(f"Test Loss: {test_loss:.4f}")
