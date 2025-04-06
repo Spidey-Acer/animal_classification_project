@@ -26,7 +26,7 @@ def plot_accuracy_and_loss(output_dir: str) -> None:
     except FileNotFoundError:
         print("Warning: history_fine.pkl not found, using only history.pkl")
 
-    # Combine histories if fine-tuning exists
+    # Combine histories
     combined_history = {
         'loss': history['loss'] + (history_fine.get('loss', [])),
         'accuracy': history['accuracy'] + (history_fine.get('accuracy', [])),
@@ -114,7 +114,7 @@ def plot_precision_recall_curve(output_dir: str) -> None:
 
 def plot_sample_images(data_dir: str, output_dir: str) -> None:
     """
-    Plot sample images from each class.
+    Plot sample images from each class with class name labels.
 
     Args:
         data_dir: Path to dataset directory (animal_data).
@@ -124,7 +124,7 @@ def plot_sample_images(data_dir: str, output_dir: str) -> None:
         class_names = pickle.load(f)
 
     num_samples = 5
-    plt.figure(figsize=(num_samples * 2, len(class_names) * 2))
+    plt.figure(figsize=(num_samples * 3, len(class_names) * 3))
     
     for i, class_name in enumerate(class_names):
         class_dir = os.path.join(data_dir, class_name)
@@ -138,11 +138,10 @@ def plot_sample_images(data_dir: str, output_dir: str) -> None:
             img = Image.open(img_path).resize((224, 224))
             plt.subplot(len(class_names), num_samples, i * num_samples + j + 1)
             plt.imshow(img)
+            plt.title(class_name, fontsize=10)  # Label each image with class name
             plt.axis('off')
-            if j == 0:
-                plt.ylabel(class_name, fontsize=10, rotation=0, labelpad=40)
     
-    plt.suptitle('Sample Images from Each Class', fontsize=14)
+    plt.suptitle('Sample Images from Each Class', fontsize=14, y=1.02)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'sample_images.png'), dpi=300, bbox_inches='tight')
     plt.close()
