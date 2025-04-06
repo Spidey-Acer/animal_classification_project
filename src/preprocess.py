@@ -4,18 +4,20 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from typing import Tuple, List
+import random
 
 class DatasetError(Exception):
     """Custom exception for dataset-related errors."""
     pass
 
-def load_and_preprocess_data(data_dir: str, img_size: Tuple[int, int] = (224, 224)) -> Tuple[np.ndarray, ...]:
+def load_and_preprocess_data(data_dir: str, img_size: Tuple[int, int] = (224, 224), max_images_per_class: int = 80) -> Tuple[np.ndarray, ...]:
     """
-    Load and preprocess images from the animal dataset.
+    Load and preprocess images from the animal dataset, limiting to max_images_per_class per class.
 
     Args:
         data_dir (str): Path to the dataset directory (e.g., '../animal_data').
         img_size (tuple): Target image size (height, width).
+        max_images_per_class (int): Maximum number of images per class.
 
     Returns:
         Tuple containing:
@@ -38,10 +40,15 @@ def load_and_preprocess_data(data_dir: str, img_size: Tuple[int, int] = (224, 22
 
     print(f"Found {len(class_names)} classes: {class_names}")
 
+    # Load images, limiting to max_images_per_class per class
+    class_counts = {}
     for label, class_name in enumerate(class_names):
         class_dir = os.path.join(data_dir, class_name)
         img_files = [f for f in os.listdir(class_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        
+        random.shuffle(img_files)  # Shuffle to avoid bias
+        img_files = img_files[:max_images_per_class]  # Limit to 80 images
+        class_counts[class_name] = len(img_files)
+
         for img_name in img_files:
             img_path = os.path.join(class_dir, img_name)
             try:
@@ -59,6 +66,10 @@ def load_and_preprocess_data(data_dir: str, img_size: Tuple[int, int] = (224, 22
 
     if not images:
         raise DatasetError("No valid images found in the dataset.")
+
+    print("Class distribution after limiting:")
+    for class_name, count in class_counts.items():
+        print(f" - {class_name}: {count} images")
 
     # Convert to numpy arrays
     X = np.array(images)
@@ -96,6 +107,7 @@ def get_sample_images(data_dir: str, class_names: List[str], num_samples: int = 
     for class_name in class_names:
         class_dir = os.path.join(data_dir, class_name)
         img_files = [f for f in os.listdir(class_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        random.shuffle(img_files)
         for img_name in img_files[:num_samples]:
             img_path = os.path.join(class_dir, img_name)
             img = cv2.imread(img_path)
