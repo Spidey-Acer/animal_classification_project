@@ -1,73 +1,175 @@
-import os
+import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from model import build_model
-from preprocess import load_and_preprocess_data
-from typing import Tuple
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, BatchNormalization, Dropout
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import os
+import pickle
+import numpy as np
 
-def train_model(
-    data_dir: str,
-    output_dir: str,
-    epochs: int = 30,
-    batch_size: int = 32
-) -> Tuple:
-    """
-    Train the CNN model on the animal dataset with data augmentation.
+# Parameters
+IMG_SIZE = (224, 224)
+BATCH_SIZE = 16
+NUM_CLASSES = 15
+EPOCHS = 30  # Reduced for initial training; fine-tuning adds more
+DATA_DIR = './animal_data'
+OUTPUT_DIR = './outputs'
 
-    Args:
-        data_dir (str): Path to dataset directory.
-        output_dir (str): Directory to save model weights and outputs.
-        epochs (int): Number of training epochs.
-        batch_size (int): Batch size for training.
+# Create output directory
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    Returns:
-        Tuple containing:
-            - model: Trained Keras model.
-            - history: Training history.
-            - X_test, y_test: Test data and labels.
-            - class_names: List of class names.
-    """
-    os.makedirs(output_dir, exist_ok=True)
+# Class names
+class_names = ['Bear', 'Bird', 'Cat', 'Cow', 'Deer', 'Dog', 'Dolphin', 'Elephant', 'Giraffe', 
+               'Horse', 'Kangaroo', 'Lion', 'Panda', 'Tiger', 'Zebra']
+with open(os.path.join(OUTPUT_DIR, 'class_names.pkl'), 'wb') as f:
+    pickle.dump(class_names, f)
 
-    # Load data
-    X_train, X_val, X_test, y_train, y_val, y_test, class_names = load_and_preprocess_data(data_dir)
-    num_classes = len(class_names)
+# Data augmentation and preprocessing
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest',
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+)
 
-    # Data augmentation for training
-    train_datagen = ImageDataGenerator(
-        rotation_range=20,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        horizontal_flip=True,
-        zoom_range=0.2
-    )
-    val_datagen = ImageDataGenerator()  # No augmentation for validation/test
+val_datagen = ImageDataGenerator(
+    rescale=1./255,
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+)
 
-    train_generator = train_datagen.flow(X_train, y_train, batch_size=batch_size)
-    val_generator = val_datagen.flow(X_val, y_val, batch_size=batch_size)
+test_datagen = ImageDataGenerator(
+    rescale=1./255,
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+)
 
-    # Build and train model
-    model = build_model(num_classes=num_classes)
-    history = model.fit(
-        train_generator,
-        epochs=epochs,
-        validation_data=val_generator,
-        steps_per_epoch=len(X_train) // batch_size,
-        validation_steps=len(X_val) // batch_size,
-        verbose=1
-    )
+# Data generators for training, validation, and testing
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest',
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
+    validation_split=0.3
+)
+val_datagen = ImageDataGenerator(
+    rescale=1./255,
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input,
+    validation_split=0.3
+)
+test_datagen = ImageDataGenerator(
+    rescale=1./255,
+    preprocessing_function=tf.keras.applications.resnet50.preprocess_input
+)
+train_generator = train_datagen.flow_from_directory(
+    DATA_DIR,
+    target_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    classes=class_names,
+    subset='training',
+    shuffle=True
+)
+val_generator = val_datagen.flow_from_directory(
+    DATA_DIR,
+    target_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    classes=class_names,
+    subset='validation',
+    shuffle=False
+)
+test_generator = test_datagen.flow_from_directory(
+    DATA_DIR,
+    target_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    classes=class_names,
+    shuffle=False
+)
 
-    # Evaluate on test set
-    test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
-    print(f"\nTest Accuracy: {test_accuracy * 100:.2f}%")
-    print(f"Test Loss: {test_loss:.4f}")
+# Build model
+base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+base_model.trainable = False  # Freeze initially
 
-    # Save model weights
-    model.save(os.path.join(output_dir, "model_weights.h5"))
-    print(f"Model weights saved to {output_dir}/model_weights.h5")
+model = Sequential([
+    base_model,
+    GlobalAveragePooling2D(),
+    Dense(512, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.5),
+    Dense(NUM_CLASSES, activation='softmax')
+])
 
-    return model, history, X_test, y_test, class_names
+# Compile model
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
 
-if __name__ == "__main__":
-    data_dir = "./animal_data"
-    output_dir = "./outputs"
-    model, history, X_test, y_test, class_names = train_model(data_dir, output_dir)
+# Print model summary
+print("Initial Model Architecture:")
+model.summary()
+
+# Callbacks
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6)
+
+# Initial training
+print("Starting initial training...")
+history = model.fit(
+    train_generator,
+    epochs=EPOCHS,
+    validation_data=val_generator,
+    callbacks=[early_stopping, reduce_lr]
+)
+
+# Save initial history
+with open(os.path.join(OUTPUT_DIR, 'history.pkl'), 'wb') as f:
+    pickle.dump(history.history, f)
+
+# Fine-tuning
+print("Starting fine-tuning...")
+base_model.trainable = True
+for layer in base_model.layers[:100]:  # Freeze first 100 layers
+    layer.trainable = False
+
+# Recompile with lower learning rate
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Print fine-tuning summary
+print("Fine-Tuning Model Architecture:")
+model.summary()
+
+# Continue training
+history_fine = model.fit(
+    train_generator,
+    epochs=EPOCHS,
+    initial_epoch=len(history.epoch),
+    validation_data=val_generator,
+    callbacks=[early_stopping, reduce_lr]
+)
+
+# Save fine-tuning history
+with open(os.path.join(OUTPUT_DIR, 'history_fine.pkl'), 'wb') as f:
+    pickle.dump(history_fine.history, f)
+
+# Evaluate on test set
+test_generator.reset()
+steps = int(np.ceil(119 / BATCH_SIZE))  # Match preprocess.py's 119 test samples
+test_loss, test_accuracy = model.evaluate(test_generator, steps=steps)
+print(f"Test Accuracy: {test_accuracy*100:.2f}%")
+print(f"Test Loss: {test_loss:.4f}")
+
+# Save model
+model.save(os.path.join(OUTPUT_DIR, 'model.keras'))
