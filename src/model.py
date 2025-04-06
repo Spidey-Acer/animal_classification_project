@@ -1,52 +1,42 @@
 from tensorflow.keras import layers, models
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.optimizers import Adam
 from typing import Tuple
 
-def build_model(input_shape: Tuple[int, int, int] = (224, 224, 3), num_classes: int = 15) -> models.Sequential:
+def build_model(input_shape: Tuple[int, int, int] = (224, 224, 3), num_classes: int = 15) -> models.Model:
     """
-    Build a Convolutional Neural Network for animal image classification.
+    Build ResNet50-based model for animal classification.
 
     Args:
-        input_shape (tuple): Input image shape (height, width, channels).
-        num_classes (int): Number of classes (default=15 for animal dataset).
+        input_shape: Input image shape (height, width, channels).
+        num_classes: Number of classes (default: 15).
 
     Returns:
-        models.Sequential: Compiled Keras model.
+        Compiled Keras model.
     """
+    # Load pre-trained ResNet50
+    base_model = ResNet50(
+        weights='imagenet',
+        include_top=False,
+        input_shape=input_shape
+    )
+
+    # Initially freeze all layers (train.py will handle fine-tuning)
+    base_model.trainable = False
+
+    # Build model
     model = models.Sequential([
-        # First Convolutional Block
-        layers.Conv2D(32, (3, 3), padding='same', activation='relu', input_shape=input_shape),
-        layers.BatchNormalization(),
-        layers.Conv2D(32, (3, 3), padding='same', activation='relu'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-
-        # Second Convolutional Block
-        layers.Conv2D(64, (3, 3), padding='same', activation='relu'),
-        layers.BatchNormalization(),
-        layers.Conv2D(64, (3, 3), padding='same', activation='relu'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-
-        # Third Convolutional Block
-        layers.Conv2D(128, (3, 3), padding='same', activation='relu'),
-        layers.BatchNormalization(),
-        layers.Conv2D(128, (3, 3), padding='same', activation='relu'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-
-        # Dense Layers
-        layers.Flatten(),
+        base_model,
+        layers.GlobalAveragePooling2D(),
         layers.Dense(512, activation='relu'),
         layers.BatchNormalization(),
         layers.Dropout(0.5),
         layers.Dense(num_classes, activation='softmax')
     ])
 
+    # Compile
     model.compile(
-        optimizer='adam',
+        optimizer=Adam(learning_rate=1e-4),
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )
