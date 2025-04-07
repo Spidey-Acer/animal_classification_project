@@ -24,7 +24,7 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
         preprocessing_function=tf.keras.applications.resnet50.preprocess_input
     )
     test_generator = test_datagen.flow_from_directory(
-        data_dir,
+        os.path.join(data_dir, 'test'),
         target_size=(224, 224),
         batch_size=16,
         class_mode='categorical',
@@ -32,9 +32,9 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
         shuffle=False
     )
 
-    # Evaluate (limit to 119 samples)
+    # Evaluate (limit to ~120 samples)
     test_generator.reset()
-    steps = int(np.ceil(119 / test_generator.batch_size))
+    steps = int(np.ceil(120 / test_generator.batch_size))
     test_loss, test_accuracy = model.evaluate(test_generator, steps=steps)
     print(f"Test Accuracy: {test_accuracy*100:.2f}%")
     print(f"Test Loss: {test_loss:.4f}")
@@ -43,7 +43,7 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
     test_generator.reset()
     y_pred = model.predict(test_generator, steps=steps)
     y_pred_classes = np.argmax(y_pred, axis=1)
-    y_true = test_generator.classes[:119]  # Limit to 119 samples
+    y_true = test_generator.classes[:120]  # Limit to 120 samples
     y_pred_probs = y_pred
 
     # Save results
