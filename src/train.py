@@ -3,17 +3,18 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, BatchNormalization, Dropout
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping
 import os
 import pickle
 import numpy as np
+import tensorflow_addons as tfa  # For cyclical learning rate
 
 # Parameters
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
 NUM_CLASSES = 15
 EPOCHS_INITIAL = 20
-EPOCHS_FINE = 60
+EPOCHS_FINE = 80
 DATA_DIR = './animal_data'
 OUTPUT_DIR = './outputs'
 
@@ -105,8 +106,7 @@ print("Initial Model Architecture:")
 model.summary()
 
 # Callbacks
-early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=12, restore_best_weights=True)
 
 # Initial training
 print("Starting initial training...")
@@ -114,21 +114,31 @@ history = model.fit(
     train_generator,
     epochs=EPOCHS_INITIAL,
     validation_data=val_generator,
-    callbacks=[early_stopping, reduce_lr]
+    callbacks=[early_stopping]
 )
 
 # Save initial history
 with open(os.path.join(OUTPUT_DIR, 'history.pkl'), 'wb') as f:
     pickle.dump(history.history, f)
 
-# Fine-tuning
+# Fine-tuning with cyclical learning rate
 print("Starting fine-tuning...")
 base_model.trainable = True
-for layer in base_model.layers[:50]:  # Unfreeze more layers
+for layer in base_model.layers[:30]:  # Unfreeze more layers
     layer.trainable = False
 
-# Recompile with adjusted learning rate
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+# Cyclical learning rate
+steps_per_epoch = len(train_generator)
+clr = tfa.optimizers.CyclicalLearningRate(
+    initial_learning_rate=1e-5,
+    maximal_learning_rate=2e-5,
+    step_size=2 * steps_per_epoch,
+    scale_fn=lambda x: 1.0,
+    scale_mode="cycle"
+)
+
+# Recompile with cyclical learning rate
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=clr),
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
@@ -142,7 +152,7 @@ history_fine = model.fit(
     epochs=EPOCHS_INITIAL + EPOCHS_FINE,
     initial_epoch=len(history.epoch),
     validation_data=val_generator,
-    callbacks=[early_stopping, reduce_lr]
+    callbacks=[early_stopping]
 )
 
 # Save fine-tuning history
