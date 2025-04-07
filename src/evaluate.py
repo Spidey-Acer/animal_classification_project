@@ -15,8 +15,11 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
     with open(os.path.join(output_dir, 'class_names.pkl'), 'rb') as f:
         class_names = pickle.load(f)
 
-    # Load model
-    model = tf.keras.models.load_model(os.path.join(output_dir, 'model.keras'))
+    # Load model without compiling to avoid CyclicalLearningRate deserialization issue
+    model = tf.keras.models.load_model(
+        os.path.join(output_dir, 'model.keras'),
+        compile=False
+    )
 
     # Test data generator
     test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(
@@ -33,6 +36,12 @@ def evaluate_model(data_dir: str, output_dir: str) -> None:
     )
 
     # Evaluate (limit to ~120 samples)
+    # Since the model is not compiled, we need to compile it with a dummy optimizer for evaluation
+    model.compile(
+        optimizer='adam',  # Dummy optimizer, not used for inference
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
     test_generator.reset()
     steps = int(np.ceil(120 / test_generator.batch_size))
     test_loss, test_accuracy = model.evaluate(test_generator, steps=steps)
