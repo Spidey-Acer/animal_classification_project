@@ -12,4 +12,7 @@ model_weights.h5
 *.h5
 venv_animal_classification/
 outputs/model.keras
+animal_data/test/
+animal_data/train/
+animal_data/val/
 
