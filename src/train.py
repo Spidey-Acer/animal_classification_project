@@ -13,7 +13,7 @@ IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
 NUM_CLASSES = 15
 EPOCHS_INITIAL = 20
-EPOCHS_FINE = 40
+EPOCHS_FINE = 60
 DATA_DIR = './animal_data'
 OUTPUT_DIR = './outputs'
 
@@ -36,7 +36,8 @@ train_datagen = ImageDataGenerator(
     zoom_range=0.2,
     horizontal_flip=True,
     fill_mode='nearest',
-    brightness_range=[0.8, 1.2],
+    brightness_range=[0.7, 1.3],
+    channel_shift_range=20.0,
     preprocessing_function=tf.keras.applications.resnet50.preprocess_input
 )
 
@@ -85,9 +86,12 @@ base_model.trainable = False  # Freeze initially
 model = Sequential([
     base_model,
     GlobalAveragePooling2D(),
+    Dense(1024, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.3),
     Dense(512, activation='relu'),
     BatchNormalization(),
-    Dropout(0.5),
+    Dropout(0.3),
     Dense(NUM_CLASSES, activation='softmax')
 ])
 
@@ -101,8 +105,8 @@ print("Initial Model Architecture:")
 model.summary()
 
 # Callbacks
-early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=4, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6)
 
 # Initial training
 print("Starting initial training...")
@@ -120,11 +124,11 @@ with open(os.path.join(OUTPUT_DIR, 'history.pkl'), 'wb') as f:
 # Fine-tuning
 print("Starting fine-tuning...")
 base_model.trainable = True
-for layer in base_model.layers[:100]:  # Freeze first 100 layers
+for layer in base_model.layers[:50]:  # Unfreeze more layers
     layer.trainable = False
 
 # Recompile with adjusted learning rate
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=5e-6),
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
@@ -147,7 +151,7 @@ with open(os.path.join(OUTPUT_DIR, 'history_fine.pkl'), 'wb') as f:
 
 # Evaluate on test set
 test_generator.reset()
-steps = int(np.ceil(120 / BATCH_SIZE))  # Match create_split.py's ~120 test samples
+steps = int(np.ceil(120 / BATCH_SIZE))
 test_loss, test_accuracy = model.evaluate(test_generator, steps=steps)
 print(f"Test Accuracy: {test_accuracy*100:.2f}%")
 print(f"Test Loss: {test_loss:.4f}")
