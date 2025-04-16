@@ -35,7 +35,7 @@ def plot_accuracy_and_loss(output_dir: str) -> None:
     }
 
     # Accuracy curve
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 8))
     plt.plot(combined_history['accuracy'], label='Training Accuracy')
     plt.plot(combined_history['val_accuracy'], label='Validation Accuracy')
     plt.title('Model Accuracy')
@@ -123,11 +123,11 @@ def plot_sample_images(data_dir: str, output_dir: str) -> None:
     with open(os.path.join(output_dir, 'class_names.pkl'), 'rb') as f:
         class_names = pickle.load(f)
 
-    num_samples = 5
-    plt.figure(figsize=(num_samples * 3, len(class_names) * 3))
+    num_samples = 4  # Reduced from 5 to 2 samples per class
+    plt.figure(figsize=(num_samples * 2, len(class_names) * 2))  # Adjusted figure size for 2 samples
     
     for i, class_name in enumerate(class_names):
-        class_dir = os.path.join(data_dir, class_name)
+        class_dir = os.path.join(data_dir, 'train', class_name)  # Use train split for consistency
         images = [f for f in os.listdir(class_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
         if len(images) < num_samples:
             continue

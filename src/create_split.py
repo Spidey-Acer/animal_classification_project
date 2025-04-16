@@ -3,13 +3,6 @@ import shutil
 import random
 
 def create_split(data_dir: str, output_dir: str) -> None:
-    """
-    Create train/val/test subfolders matching preprocess.py's 840/241/119 split.
-
-    Args:
-        data_dir: Path to animal_data with class subfolders.
-        output_dir: Path to create train/val/test subfolders.
-    """
     random.seed(42)  # For reproducibility
     class_names = ['Bear', 'Bird', 'Cat', 'Cow', 'Deer', 'Dog', 'Dolphin', 'Elephant', 'Giraffe',
                    'Horse', 'Kangaroo', 'Lion', 'Panda', 'Tiger', 'Zebra']
